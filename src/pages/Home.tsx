@@ -205,6 +205,14 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* 디버그 모드 진입 */}
+      <button
+        onClick={() => navigate('/debug')}
+        className="w-full mt-4 py-3 rounded-xl text-xs text-fluent-text-muted bg-fluent-navy-800/50 border border-fluent-navy-700/30"
+      >
+        🛠 디버그 모드
+      </button>
     </div>
   )
 }
