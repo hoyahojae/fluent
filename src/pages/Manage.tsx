@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { levels, getThemesForLevel, getUnitsForTheme, getExpressionsForUnit, getVocabularyForUnit } from '@/data/curriculum'
 import { ChevronRightIcon, SparklesIcon, VolumeIcon, PlusIcon, PencilIcon, TrashIcon, SearchIcon, XIcon } from '@/components/ui/Icons'
@@ -11,6 +12,7 @@ import { generateContent } from '@/features/ai/aiContentGenerator'
 type View = 'levels' | 'themes' | 'units' | 'detail'
 
 export default function Manage() {
+  const navigate = useNavigate()
   const [view, setView] = useState<View>('levels')
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null)
@@ -22,6 +24,7 @@ export default function Manage() {
     if (view === 'detail') setView('units')
     else if (view === 'units') setView('themes')
     else if (view === 'themes') setView('levels')
+    else navigate('/')
   }
 
   const title =
@@ -34,7 +37,7 @@ export default function Manage() {
     <div className="max-w-lg mx-auto pb-24 animate-fade-in">
       <Header
         title={title}
-        showBack={view !== 'levels'}
+        showBack
         onBack={goBack}
         right={
           view === 'levels' ? (

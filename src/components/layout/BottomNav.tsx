@@ -1,12 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { HomeIcon, BookIcon, FolderIcon, ChartIcon } from '@/components/ui/Icons'
+import { HomeIcon, BookIcon, ChartIcon } from '@/components/ui/Icons'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 
 const tabs = [
   { path: '/', label: '홈', icon: HomeIcon },
   { path: '/learn', label: '학습', icon: BookIcon },
-  { path: '/manage', label: '관리', icon: FolderIcon },
   { path: '/reports', label: '리포트', icon: ChartIcon },
 ]
 
@@ -15,7 +14,7 @@ export function BottomNav() {
   const navigate = useNavigate()
 
   // 특정 페이지에서는 네비게이션 숨김
-  const hiddenPaths = ['/session', '/welcome', '/level-test']
+  const hiddenPaths = ['/session', '/welcome', '/level-test', '/manage', '/debug']
   if (hiddenPaths.some(p => location.pathname.startsWith(p))) return null
 
   return (

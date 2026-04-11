@@ -136,6 +136,12 @@ export default function Debug() {
             >
               레벨 테스트 다시 하기
             </button>
+            <button
+              onClick={() => navigate('/manage')}
+              className="w-full bg-fluent-navy-700 text-fluent-text-secondary py-2.5 rounded-xl text-sm font-medium"
+            >
+              콘텐츠 관리 페이지
+            </button>
           </div>
         </div>
 
