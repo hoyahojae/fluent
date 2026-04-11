@@ -12,8 +12,15 @@ const hideLoading = () => {
     setTimeout(() => el.remove(), 400)
   }
 }
-window.addEventListener('load', hideLoading)
-setTimeout(hideLoading, 3000) // 최대 3초 후 강제 제거
+// 최대 2초 후 강제 제거 (렌더링 실패해도 로딩 안 남음)
+setTimeout(hideLoading, 2000)
+
+// 이전 SW 캐시 문제 방지: SW 업데이트 강제
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((reg) => reg.update())
+  })
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
