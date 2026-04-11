@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 interface ProgressBarProps {
   value: number // 0~100
   className?: string
-  color?: 'teal' | 'xp' | 'success' | 'error'
+  color?: 'teal' | 'xp' | 'success' | 'error' | 'warning'
   size?: 'sm' | 'md'
   showLabel?: boolean
 }
@@ -16,6 +16,7 @@ export function ProgressBar({ value, className, color = 'teal', size = 'md', sho
     xp: 'bg-fluent-xp',
     success: 'bg-fluent-success',
     error: 'bg-fluent-error',
+    warning: 'bg-fluent-warning',
   }
 
   const sizeMap = {
