@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -15,12 +15,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet" />
     <title>Fluent</title>
+    <script>
+      // 저장된 테마 즉시 적용 (FOUC 방지)
+      (function() {
+        try {
+          var stored = JSON.parse(localStorage.getItem('fluent-storage') || '{}');
+          var mode = stored.state && stored.state.settings && stored.state.settings.themeMode;
+          if (mode === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else if (mode === 'light') {
+            document.documentElement.classList.remove('dark');
+          } else {
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              document.documentElement.classList.add('dark');
+            }
+          }
+        } catch(e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     <style>
       /* 로딩 스크린 */
       #loading-screen {
         position: fixed;
         inset: 0;
-        background: #0F1923;
+        background: rgb(var(--c-bg));
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -69,7 +89,7 @@
       }
     </style>
   </head>
-  <body class="bg-fluent-bg-dark text-fluent-text-primary">
+  <body>
     <!-- 로딩 스크린 -->
     <div id="loading-screen">
       <svg id="loading-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">

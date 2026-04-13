@@ -5,17 +5,24 @@ import { VolumeIcon } from '@/components/ui/Icons'
 
 interface Props {
   activity: Activity
-  onSubmit: (isCorrect: boolean, userAnswer: string) => void
+  onSubmit: (isCorrect: boolean, userAnswer: string, hintLevel?: number) => void
 }
 
 export function Translation({ activity, onSubmit }: Props) {
   const [answer, setAnswer] = useState('')
-  const [showHint, setShowHint] = useState(false)
+  const [hintLevel, setHintLevel] = useState(0) // 0=안 씀, 1~3=사용 단계
+
+  const hints = activity.hints ?? (activity.hint ? [activity.hint] : [])
+  const maxHints = hints.length
 
   const handleSubmit = () => {
     if (!answer.trim()) return
     const correct = checkAnswer(answer, activity.answer)
-    onSubmit(correct, answer)
+    onSubmit(correct, answer, hintLevel)
+  }
+
+  const handleShowNextHint = () => {
+    setHintLevel(prev => Math.min(prev + 1, maxHints))
   }
 
   return (
@@ -41,19 +48,38 @@ export function Translation({ activity, onSubmit }: Props) {
         />
       </div>
 
-      {showHint && activity.hint && (
-        <p className="text-sm text-fluent-text-muted animate-fade-in">
-          힌트: {activity.hint}
-        </p>
+      {/* 3단계 힌트 표시 */}
+      {hintLevel > 0 && (
+        <div className="space-y-2 animate-fade-in">
+          {hints.slice(0, hintLevel).map((hint, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 text-sm bg-fluent-navy-700/40 rounded-lg px-3 py-2"
+            >
+              <span className="text-fluent-teal-400 font-bold text-xs mt-0.5">
+                힌트{i + 1}
+              </span>
+              <span className="text-fluent-text-secondary">{hint}</span>
+            </div>
+          ))}
+          {hintLevel > 0 && (
+            <p className="text-[10px] text-fluent-text-muted text-right">
+              힌트 사용 시 획득 XP가 줄어듭니다
+            </p>
+          )}
+        </div>
       )}
 
       <div className="flex gap-3">
-        {!showHint && activity.hint && (
+        {hintLevel < maxHints && (
           <button
-            onClick={() => setShowHint(true)}
+            onClick={handleShowNextHint}
             className="btn-secondary flex-1 text-sm"
           >
-            힌트
+            {hintLevel === 0 ? '힌트' : `힌트 ${hintLevel + 1}`}
+            <span className="text-[10px] ml-1 opacity-60">
+              ({hintLevel}/{maxHints})
+            </span>
           </button>
         )}
         <button

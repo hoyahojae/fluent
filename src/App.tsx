@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
+import { useTheme } from '@/lib/useTheme'
 import { BottomNav } from '@/components/layout/BottomNav'
 import Welcome from '@/pages/Welcome'
 import LevelTest from '@/pages/LevelTest'
@@ -18,6 +19,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const isOnboarded = useStore((s) => s.isOnboarded)
+  useTheme()
 
   return (
     <div className="min-h-screen bg-fluent-bg-dark text-fluent-text-primary">

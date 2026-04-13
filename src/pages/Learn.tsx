@@ -30,7 +30,7 @@ export default function Learn() {
       const reviewCount = getReviewCount(settings.currentLevel, 15)
       const { expressions: reviewExprs, vocabulary: reviewVocab } = getReviewItems(reviewCount)
 
-      const activities = generateSessionActivities(newExpressions, newVocab, reviewExprs, reviewVocab)
+      const activities = generateSessionActivities(newExpressions, newVocab, reviewExprs, reviewVocab, settings.categoryWeakness)
       startSession(unitParam, activities)
       navigate('/session', { replace: true })
       return null

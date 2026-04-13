@@ -9,9 +9,16 @@ export default function Debug() {
   const store = useStore()
   const [confirmReset, setConfirmReset] = useState(false)
 
-  const handleResetAll = () => {
+  const handleResetAll = async () => {
     localStorage.removeItem('fluent-storage')
-    window.location.href = '/welcome'
+    // SW 캐시 정리 & 해제
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map((r) => r.unregister()))
+      const keys = await caches.keys()
+      await Promise.all(keys.map((k) => caches.delete(k)))
+    }
+    window.location.href = '/'
   }
 
   const handleSetLevel = (level: number) => {
@@ -92,6 +99,29 @@ export default function Debug() {
           </div>
         </div>
 
+        {/* 테마 설정 */}
+        <div className="card">
+          <h3 className="font-semibold text-sm mb-3">테마 설정</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {(['auto', 'light', 'dark'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => store.updateSettings({ themeMode: mode })}
+                className={`py-2.5 rounded-lg text-xs font-medium transition-colors ${
+                  store.settings.themeMode === mode
+                    ? 'bg-fluent-teal-400 text-white'
+                    : 'bg-fluent-navy-700 text-fluent-text-secondary'
+                }`}
+              >
+                {mode === 'auto' ? '🔄 자동' : mode === 'light' ? '☀️ 라이트' : '🌙 다크'}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-fluent-text-muted mt-2">
+            자동: 기기 설정에 따라 전환
+          </p>
+        </div>
+
         {/* 레벨 수동 설정 */}
         <div className="card">
           <h3 className="font-semibold text-sm mb-3">레벨 수동 설정</h3>
@@ -141,6 +171,12 @@ export default function Debug() {
               className="w-full bg-fluent-navy-700 text-fluent-text-secondary py-2.5 rounded-xl text-sm font-medium"
             >
               콘텐츠 관리 페이지
+            </button>
+            <button
+              onClick={() => navigate('/manage?tab=leveltest')}
+              className="w-full bg-fluent-navy-700 text-fluent-text-secondary py-2.5 rounded-xl text-sm font-medium"
+            >
+              레벨테스트 문제 관리
             </button>
           </div>
         </div>

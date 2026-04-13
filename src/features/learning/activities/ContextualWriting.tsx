@@ -6,33 +6,33 @@ import { getWritingFeedback, type WritingFeedback } from '@/features/ai/aiFeedba
 
 interface Props {
   activity: Activity
-  onSubmit: (isCorrect: boolean, userAnswer: string) => void
+  onSubmit: (isCorrect: boolean, userAnswer: string, hintLevel?: number) => void
 }
 
 export function ContextualWriting({ activity, onSubmit }: Props) {
   const [answer, setAnswer] = useState('')
-  const [showHint, setShowHint] = useState(false)
+  const [hintLevel, setHintLevel] = useState(0)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [feedback, setFeedback] = useState<WritingFeedback | null>(null)
+
+  const hints = activity.hints ?? (activity.hint ? [activity.hint] : [])
+  const maxHints = hints.length
 
   const handleSubmit = async () => {
     if (!answer.trim()) return
 
-    // 정확히 일치하면 바로 정답 처리
     const exactMatch = checkAnswer(answer, activity.answer)
     if (exactMatch) {
-      onSubmit(true, answer)
+      onSubmit(true, answer, hintLevel)
       return
     }
 
-    // AI 피드백 분석
     setIsAnalyzing(true)
     try {
       const result = await getWritingFeedback(answer, activity.answer, activity.question)
       setFeedback(result)
     } catch {
-      // 분석 실패 시 기본 채점
-      onSubmit(false, answer)
+      onSubmit(false, answer, hintLevel)
     } finally {
       setIsAnalyzing(false)
     }
@@ -40,11 +40,14 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
 
   const handleAcceptFeedback = () => {
     if (feedback) {
-      onSubmit(feedback.isAcceptable, answer)
+      onSubmit(feedback.isAcceptable, answer, hintLevel)
     }
   }
 
-  // 피드백이 있으면 피드백 화면 표시
+  const handleShowNextHint = () => {
+    setHintLevel(prev => Math.min(prev + 1, maxHints))
+  }
+
   if (feedback) {
     return (
       <div className="space-y-4 animate-fade-in">
@@ -53,7 +56,6 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
           <p className="text-xs text-fluent-teal-400 font-medium">AI 피드백</p>
         </div>
 
-        {/* 점수 */}
         <div className="flex items-center gap-3">
           <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold ${
             feedback.score >= 70 ? 'bg-fluent-success/20 text-fluent-success' :
@@ -72,13 +74,11 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
           </div>
         </div>
 
-        {/* 내 답변 */}
         <div className="bg-fluent-navy-700/50 rounded-xl p-3">
           <p className="text-[10px] text-fluent-text-muted mb-1">내 답변</p>
           <p className="text-sm">{answer}</p>
         </div>
 
-        {/* 모범 답안 */}
         <div className="bg-fluent-teal-400/10 border border-fluent-teal-400/20 rounded-xl p-3">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[10px] text-fluent-teal-300">모범 답안</p>
@@ -89,7 +89,6 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
           <p className="text-sm font-medium">{feedback.suggestedAnswer}</p>
         </div>
 
-        {/* 칭찬 */}
         {feedback.praise.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] text-fluent-success font-medium">👍 잘한 점</p>
@@ -99,7 +98,6 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
           </div>
         )}
 
-        {/* 문법 피드백 */}
         {feedback.grammar.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] text-fluent-error font-medium">📝 문법 개선</p>
@@ -109,7 +107,6 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
           </div>
         )}
 
-        {/* 자연스러움 팁 */}
         {feedback.naturalness.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] text-fluent-warning font-medium">💡 더 자연스러운 표현</p>
@@ -119,10 +116,7 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
           </div>
         )}
 
-        <button
-          onClick={handleAcceptFeedback}
-          className="w-full btn-primary"
-        >
+        <button onClick={handleAcceptFeedback} className="w-full btn-primary">
           다음
         </button>
       </div>
@@ -157,16 +151,33 @@ export function ContextualWriting({ activity, onSubmit }: Props) {
         />
       </div>
 
-      {showHint && activity.hint && (
-        <p className="text-sm text-fluent-text-muted animate-fade-in">
-          힌트: {activity.hint}
-        </p>
+      {/* 3단계 힌트 표시 */}
+      {hintLevel > 0 && (
+        <div className="space-y-2 animate-fade-in">
+          {hints.slice(0, hintLevel).map((hint, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 text-sm bg-fluent-navy-700/40 rounded-lg px-3 py-2"
+            >
+              <span className="text-fluent-teal-400 font-bold text-xs mt-0.5">
+                힌트{i + 1}
+              </span>
+              <span className="text-fluent-text-secondary">{hint}</span>
+            </div>
+          ))}
+          <p className="text-[10px] text-fluent-text-muted text-right">
+            힌트 사용 시 획득 XP가 줄어듭니다
+          </p>
+        </div>
       )}
 
       <div className="flex gap-3">
-        {!showHint && activity.hint && (
-          <button onClick={() => setShowHint(true)} className="btn-secondary flex-1 text-sm">
-            힌트
+        {hintLevel < maxHints && (
+          <button onClick={handleShowNextHint} className="btn-secondary flex-1 text-sm">
+            {hintLevel === 0 ? '힌트' : `힌트 ${hintLevel + 1}`}
+            <span className="text-[10px] ml-1 opacity-60">
+              ({hintLevel}/{maxHints})
+            </span>
           </button>
         )}
         <button

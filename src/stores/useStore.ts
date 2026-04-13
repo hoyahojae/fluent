@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MasteryRecord, SessionLog, UserSettings, SessionState, ActivityResult, Activity, Expression, Vocabulary } from '@/data/types'
+import type { MasteryRecord, SessionLog, UserSettings, SessionState, ActivityResult, Activity, Expression, Vocabulary, CategoryWeakness } from '@/data/types'
+import { getThemesForLevel, getUnitsForTheme } from '@/data/curriculum'
 
 interface FluentStore {
   // 사용자 커스텀 콘텐츠
@@ -58,6 +59,7 @@ interface FluentStore {
   unitsSinceLastTest: number // 마지막 테스트 이후 완료한 유닛 수
   incrementUnitsSinceTest: () => void
   resetUnitsSinceTest: () => void
+  adjustCurriculumForLevel: (newLevel: number, categoryWeakness?: CategoryWeakness) => void
 
   // 온보딩
   isOnboarded: boolean
@@ -103,7 +105,7 @@ export const useStore = create<FluentStore>()(
         dailyExpressionGoal: 3,
         dailyVocabGoal: 5,
         reviewRatio: 0.3,
-        darkMode: true,
+        themeMode: 'auto' as const,
       },
       updateSettings: (updates) =>
         set((state) => ({ settings: { ...state.settings, ...updates } })),
@@ -293,6 +295,36 @@ export const useStore = create<FluentStore>()(
       incrementUnitsSinceTest: () =>
         set((state) => ({ unitsSinceLastTest: state.unitsSinceLastTest + 1 })),
       resetUnitsSinceTest: () => set({ unitsSinceLastTest: 0 }),
+      adjustCurriculumForLevel: (newLevel, categoryWeakness) =>
+        set((state) => {
+          const oldLevel = state.settings.currentLevel
+
+          // 새 레벨의 유닛 진행도 초기화 (이미 학습한 것은 유지)
+          const newProgress = { ...state.unitProgress }
+          const newLevelUnits = getThemesForLevel(newLevel).flatMap(t => getUnitsForTheme(t.id))
+          for (const unit of newLevelUnits) {
+            if (!newProgress[unit.id]) {
+              newProgress[unit.id] = 'not_started'
+            }
+          }
+
+          // 레벨이 내려갔으면 새 레벨의 완료된 유닛도 리셋 (다시 학습 기회)
+          if (newLevel < oldLevel) {
+            for (const unit of newLevelUnits) {
+              newProgress[unit.id] = 'not_started'
+            }
+          }
+
+          return {
+            settings: {
+              ...state.settings,
+              currentLevel: newLevel,
+              categoryWeakness: categoryWeakness,
+            },
+            unitProgress: newProgress,
+            unitsSinceLastTest: 0,
+          }
+        }),
 
       // 온보딩
       isOnboarded: false,

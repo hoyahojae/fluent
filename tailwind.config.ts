@@ -7,7 +7,7 @@ export default {
     extend: {
       colors: {
         fluent: {
-          // Primary - Deep Navy
+          // Primary - Deep Navy (CSS 변수 기반, 테마 자동 전환)
           navy: {
             50: '#E8ECF1',
             100: '#C5CCD9',
@@ -15,9 +15,9 @@ export default {
             300: '#7688A9',
             400: '#4E6691',
             500: '#2D4A73',
-            600: '#1B2A4A',
-            700: '#152238',
-            800: '#0F1923',
+            600: 'rgb(var(--c-surface-str) / <alpha-value>)',
+            700: 'rgb(var(--c-surface) / <alpha-value>)',
+            800: 'rgb(var(--c-surface-deep) / <alpha-value>)',
             900: '#0A1018',
           },
           // Accent - Muted Teal
@@ -33,19 +33,19 @@ export default {
             800: '#1A5258',
             900: '#103A3F',
           },
-          // Backgrounds
+          // Backgrounds (CSS 변수 기반)
           bg: {
-            dark: '#0F1923',
-            'dark-card': '#162030',
-            'dark-elevated': '#1D2B3F',
+            dark: 'rgb(var(--c-bg) / <alpha-value>)',
+            'dark-card': 'rgb(var(--c-card) / <alpha-value>)',
+            'dark-elevated': 'rgb(var(--c-elevated) / <alpha-value>)',
             light: '#F8F9FB',
             'light-card': '#FFFFFF',
           },
-          // Text
+          // Text (CSS 변수 기반)
           text: {
-            primary: '#E8ECF1',
-            secondary: '#9EAAC1',
-            muted: '#6B7A8D',
+            primary: 'rgb(var(--c-text) / <alpha-value>)',
+            secondary: 'rgb(var(--c-text-sec) / <alpha-value>)',
+            muted: 'rgb(var(--c-text-mut) / <alpha-value>)',
             dark: '#1A1F2E',
             'dark-secondary': '#4E5D6E',
           },

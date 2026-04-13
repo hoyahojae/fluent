@@ -3,6 +3,38 @@
 @tailwind utilities;
 
 @layer base {
+  /* 라이트 모드 (기본) */
+  :root {
+    --c-bg: 248 249 251;
+    --c-card: 255 255 255;
+    --c-elevated: 240 242 245;
+    --c-text: 26 31 46;
+    --c-text-sec: 78 93 110;
+    --c-text-mut: 120 133 151;
+    --c-surface: 232 236 241;
+    --c-surface-str: 215 221 230;
+    --c-surface-deep: 245 246 248;
+    --c-border: 210 216 226;
+    --c-border-sub: 225 230 238;
+    color-scheme: light;
+  }
+
+  /* 다크 모드 */
+  .dark {
+    --c-bg: 15 25 35;
+    --c-card: 22 32 48;
+    --c-elevated: 29 43 63;
+    --c-text: 232 236 241;
+    --c-text-sec: 158 170 193;
+    --c-text-mut: 107 122 141;
+    --c-surface: 21 34 56;
+    --c-surface-str: 27 42 74;
+    --c-surface-deep: 15 25 35;
+    --c-border: 21 34 56;
+    --c-border-sub: 29 43 63;
+    color-scheme: dark;
+  }
+
   * {
     -webkit-tap-highlight-color: transparent;
   }
@@ -38,8 +70,17 @@
     @apply bg-fluent-bg-dark-card rounded-2xl p-4 border border-fluent-navy-700/50;
   }
 
+  /* 라이트 모드에서 카드에 그림자 추가 */
+  :root:not(.dark) .card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
   .card-elevated {
     @apply bg-fluent-bg-dark-elevated rounded-2xl p-4 border border-fluent-navy-600/30;
+  }
+
+  :root:not(.dark) .card-elevated {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   }
 
   /* 버튼 기본 스타일 */
@@ -76,4 +117,14 @@
   .chip-pending {
     @apply chip bg-fluent-navy-600/50 text-fluent-text-muted;
   }
+}
+
+/* 라이트 모드에서 teal 텍스트 진하게 (가독성) */
+:root:not(.dark) .text-fluent-teal-300 {
+  color: #2F7A82;
+}
+
+/* 라이트 모드 BottomNav 그림자 */
+:root:not(.dark) nav.fixed.bottom-0 {
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.08);
 }

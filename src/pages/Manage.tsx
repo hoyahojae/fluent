@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { levels, getThemesForLevel, getUnitsForTheme, getExpressionsForUnit, getVocabularyForUnit } from '@/data/curriculum'
 import { ChevronRightIcon, SparklesIcon, VolumeIcon, PlusIcon, PencilIcon, TrashIcon, SearchIcon, XIcon } from '@/components/ui/Icons'
@@ -8,19 +8,31 @@ import { playSound } from '@/lib/sounds'
 import { useStore } from '@/stores/useStore'
 import type { Expression, Vocabulary } from '@/data/types'
 import { generateContent } from '@/features/ai/aiContentGenerator'
+import { levelTestQuestions, type QuestionCategory } from '@/data/levelTestQuestions'
 
 type View = 'levels' | 'themes' | 'units' | 'detail'
 
+const CATEGORY_LABELS: Record<QuestionCategory, string> = {
+  vocabulary: '어휘',
+  reading: '독해',
+  grammar: '문법',
+}
+
 export default function Manage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isLevelTestTab = searchParams.get('tab') === 'leveltest'
+
   const [view, setView] = useState<View>('levels')
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [showLevelTest, setShowLevelTest] = useState(isLevelTestTab)
 
   const goBack = () => {
+    if (showLevelTest) { setShowLevelTest(false); return }
     if (view === 'detail') setView('units')
     else if (view === 'units') setView('themes')
     else if (view === 'themes') setView('levels')
@@ -28,6 +40,7 @@ export default function Manage() {
   }
 
   const title =
+    showLevelTest ? '레벨테스트 문제 관리' :
     view === 'levels' ? '콘텐츠 관리' :
     view === 'themes' ? levels.find(l => l.level === selectedLevel)?.name ?? '' :
     view === 'units' ? '유닛 목록' :
@@ -52,8 +65,21 @@ export default function Manage() {
       />
 
       <div className="px-4 mt-2">
+        {/* 레벨테스트 문제 관리 */}
+        {showLevelTest && <LevelTestManager />}
+
+        {/* 콘텐츠 관리 / 레벨테스트 관리 전환 버튼 */}
+        {!showLevelTest && view === 'levels' && (
+          <button
+            onClick={() => setShowLevelTest(true)}
+            className="w-full mb-4 py-2.5 rounded-xl text-sm font-medium bg-fluent-navy-700 text-fluent-text-secondary"
+          >
+            레벨테스트 문제 관리 →
+          </button>
+        )}
+
         {/* 검색바 */}
-        {showSearch && view === 'levels' && (
+        {!showLevelTest && showSearch && view === 'levels' && (
           <div className="mb-4 animate-slide-up">
             <input
               type="text"
@@ -67,12 +93,12 @@ export default function Manage() {
         )}
 
         {/* 검색 결과 */}
-        {showSearch && searchQuery.length >= 2 && (
+        {!showLevelTest && showSearch && searchQuery.length >= 2 && (
           <SearchResults query={searchQuery} />
         )}
 
         {/* 레벨 목록 */}
-        {(!showSearch || searchQuery.length < 2) && view === 'levels' && (
+        {!showLevelTest && (!showSearch || searchQuery.length < 2) && view === 'levels' && (
           <div className="space-y-2">
             {levels.map((level) => {
               const themeCount = getThemesForLevel(level.level).length
@@ -100,7 +126,7 @@ export default function Manage() {
         )}
 
         {/* 테마 목록 */}
-        {view === 'themes' && selectedLevel !== null && (
+        {!showLevelTest && view === 'themes' && selectedLevel !== null && (
           <div className="space-y-2">
             {getThemesForLevel(selectedLevel).map((theme) => {
               const unitCount = getUnitsForTheme(theme.id).length
@@ -123,7 +149,7 @@ export default function Manage() {
         )}
 
         {/* 유닛 목록 */}
-        {view === 'units' && selectedTheme && (
+        {!showLevelTest && view === 'units' && selectedTheme && (
           <div className="space-y-2">
             {getUnitsForTheme(selectedTheme).map((unit) => {
               const exprCount = getExpressionsForUnit(unit.id).length
@@ -150,9 +176,161 @@ export default function Manage() {
         )}
 
         {/* 상세 내용 */}
-        {view === 'detail' && selectedUnit && (
+        {!showLevelTest && view === 'detail' && selectedUnit && (
           <UnitDetail unitId={selectedUnit} />
         )}
+      </div>
+    </div>
+  )
+}
+
+// ===== 레벨테스트 문제 관리 =====
+function LevelTestManager() {
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<QuestionCategory | 'all'>('all')
+
+  const questionsForLevel = useMemo(() => {
+    if (selectedLevel === null) return []
+    return levelTestQuestions.filter((q) => q.level === selectedLevel)
+  }, [selectedLevel])
+
+  const filteredQuestions = useMemo(() => {
+    if (selectedCategory === 'all') return questionsForLevel
+    return questionsForLevel.filter((q) => q.category === selectedCategory)
+  }, [questionsForLevel, selectedCategory])
+
+  // 레벨별 문제 수 통계
+  const levelStats = useMemo(() => {
+    const stats: Record<number, { total: number; vocabulary: number; reading: number; grammar: number }> = {}
+    for (let lv = 1; lv <= 10; lv++) {
+      const qs = levelTestQuestions.filter((q) => q.level === lv)
+      stats[lv] = {
+        total: qs.length,
+        vocabulary: qs.filter((q) => q.category === 'vocabulary').length,
+        reading: qs.filter((q) => q.category === 'reading').length,
+        grammar: qs.filter((q) => q.category === 'grammar').length,
+      }
+    }
+    return stats
+  }, [])
+
+  if (selectedLevel === null) {
+    return (
+      <div className="space-y-3">
+        <div className="card">
+          <h3 className="font-semibold text-sm mb-2">전체 통계</h3>
+          <div className="flex justify-between text-xs text-fluent-text-secondary">
+            <span>총 문제 수: {levelTestQuestions.length}개</span>
+            <span>레벨 수: 10개</span>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {Array.from({ length: 10 }, (_, i) => i + 1).map((lv) => {
+            const stats = levelStats[lv]!
+            return (
+              <button
+                key={lv}
+                onClick={() => setSelectedLevel(lv)}
+                className="card w-full text-left flex items-center justify-between active:scale-[0.98] transition-transform"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-fluent-teal-400/20 text-fluent-teal-300">
+                      Lv.{lv}
+                    </span>
+                    <span className="font-medium text-sm">{stats.total}문제</span>
+                  </div>
+                  <div className="flex gap-3 mt-1.5">
+                    <span className="text-[10px] text-fluent-text-muted">어휘 {stats.vocabulary}</span>
+                    <span className="text-[10px] text-fluent-text-muted">독해 {stats.reading}</span>
+                    <span className="text-[10px] text-fluent-text-muted">문법 {stats.grammar}</span>
+                  </div>
+                </div>
+                <ChevronRightIcon size={18} className="text-fluent-text-muted" />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setSelectedLevel(null)}
+        className="text-xs text-fluent-teal-400 mb-3 flex items-center gap-1"
+      >
+        ← 레벨 목록
+      </button>
+
+      <div className="card mb-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-sm">Level {selectedLevel} 문제</h3>
+          <span className="text-xs text-fluent-text-muted">{filteredQuestions.length}문제</span>
+        </div>
+      </div>
+
+      {/* 카테고리 필터 */}
+      <div className="flex gap-2 mb-4">
+        {(['all', 'vocabulary', 'reading', 'grammar'] as const).map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              selectedCategory === cat
+                ? 'bg-fluent-teal-400 text-white'
+                : 'bg-fluent-navy-700 text-fluent-text-secondary'
+            }`}
+          >
+            {cat === 'all' ? '전체' : CATEGORY_LABELS[cat]}
+          </button>
+        ))}
+      </div>
+
+      {/* 문제 목록 */}
+      <div className="space-y-2">
+        {filteredQuestions.map((q, idx) => (
+          <div key={q.id} className="card">
+            <div className="flex items-start gap-2">
+              <span className="text-[10px] text-fluent-text-muted mt-0.5 shrink-0">
+                {idx + 1}.
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                    q.category === 'vocabulary' ? 'bg-blue-500/20 text-blue-300' :
+                    q.category === 'reading' ? 'bg-green-500/20 text-green-300' :
+                    'bg-purple-500/20 text-purple-300'
+                  }`}>
+                    {CATEGORY_LABELS[q.category]}
+                  </span>
+                </div>
+                {q.passage && (
+                  <p className="text-[11px] text-fluent-text-muted italic mb-1.5 leading-relaxed">
+                    "{q.passage.length > 80 ? q.passage.slice(0, 80) + '...' : q.passage}"
+                  </p>
+                )}
+                <p className="text-sm text-fluent-text-primary">{q.question}</p>
+                <div className="grid grid-cols-2 gap-1 mt-2">
+                  {q.options.map((opt) => (
+                    <div
+                      key={opt}
+                      className={`text-[11px] px-2 py-1 rounded ${
+                        opt === q.answer
+                          ? 'bg-fluent-teal-400/20 text-fluent-teal-300 font-medium'
+                          : 'bg-fluent-navy-700 text-fluent-text-muted'
+                      }`}
+                    >
+                      {opt === q.answer && '✓ '}{opt}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -253,9 +431,12 @@ function SearchResults({ query }: { query: string }) {
 function UnitDetail({ unitId }: { unitId: string }) {
   const builtInExpressions = getExpressionsForUnit(unitId)
   const builtInVocab = getVocabularyForUnit(unitId)
-  const customExpressions = useStore((s) => s.customExpressions.filter((e) => e.unitId === unitId))
-  const customVocabulary = useStore((s) => s.customVocabulary.filter((v) => v.unitId === unitId))
+  const allCustomExpressions = useStore((s) => s.customExpressions)
+  const allCustomVocabulary = useStore((s) => s.customVocabulary)
   const { addExpression, updateExpression, deleteExpression, addVocabulary, updateVocabulary, deleteVocabulary } = useStore()
+
+  const customExpressions = useMemo(() => allCustomExpressions.filter((e) => e.unitId === unitId), [allCustomExpressions, unitId])
+  const customVocabulary = useMemo(() => allCustomVocabulary.filter((v) => v.unitId === unitId), [allCustomVocabulary, unitId])
 
   const allExpressions = [...builtInExpressions, ...customExpressions]
   const allVocab = [...builtInVocab, ...customVocabulary]

@@ -10,6 +10,7 @@ import { checkAndAwardBadges } from '@/features/gamification/badgeChecker'
 import { FloatingXp } from '@/components/ui/FloatingXp'
 import type { Badge } from '@/data/badges'
 
+import { Preview } from '@/features/learning/activities/Preview'
 import { Translation } from '@/features/learning/activities/Translation'
 import { Comprehension } from '@/features/learning/activities/Comprehension'
 import { FillBlank } from '@/features/learning/activities/FillBlank'
@@ -19,10 +20,33 @@ import { VocabSpelling } from '@/features/learning/activities/VocabSpelling'
 import { ContextualWriting } from '@/features/learning/activities/ContextualWriting'
 import { Dictation } from '@/features/learning/activities/Dictation'
 
+const SECTION_LABELS: Record<string, { label: string; emoji: string }> = {
+  preview: { label: '오늘의 표현', emoji: '📖' },
+  vocabulary: { label: '어휘 학습', emoji: '📝' },
+  practice: { label: '연습', emoji: '💪' },
+  test: { label: '테스트', emoji: '🎯' },
+}
+
+// 힌트 사용 단계별 XP 계산
+function calculateXp(isCorrect: boolean, hintLevel?: number): number {
+  if (!isCorrect) return 2 // 오답 참여 XP
+  if (!hintLevel || hintLevel === 0) return 10 // 힌트 미사용
+  if (hintLevel === 1) return 7
+  if (hintLevel === 2) return 4
+  return 2 // 힌트 3단계
+}
+
 export default function Session() {
   const navigate = useNavigate()
   const { session, submitAnswer, nextActivity, endSession, updateMastery, setUnitProgress, incrementUnitsSinceTest } = useStore()
-  const [feedback, setFeedback] = useState<{ show: boolean; isCorrect: boolean; correctAnswer: string } | null>(null)
+  const [feedback, setFeedback] = useState<{
+    show: boolean
+    isCorrect: boolean
+    correctAnswer: string
+    explanation?: string
+    hintLevel?: number
+    xpEarned: number
+  } | null>(null)
   const [showSummary, setShowSummary] = useState(false)
   const [newBadges, setNewBadges] = useState<Badge[]>([])
   const [xpTrigger, setXpTrigger] = useState(0)
@@ -33,11 +57,10 @@ export default function Session() {
   const unit = getUnitById(unitId)
   const progress = activities.length > 0 ? ((currentActivityIndex) / activities.length) * 100 : 0
 
-  // 복습/새학습 구분
-  const isCurrentReview = currentActivity?.isReview
-  // 복습→새학습 전환 시점 감지
+  // 현재 섹션
+  const currentSection = currentActivity?.section
   const prevActivity = currentActivityIndex > 0 ? activities[currentActivityIndex - 1] : null
-  const showSectionTransition = prevActivity?.isReview && !currentActivity?.isReview
+  const showSectionTransition = prevActivity?.section !== currentActivity?.section && currentActivity?.section !== 'preview'
 
   if (!session.isActive || !currentActivity) {
     if (!showSummary) {
@@ -46,14 +69,29 @@ export default function Session() {
     }
   }
 
-  const handleSubmit = (isCorrect: boolean, userAnswer: string) => {
+  const handleSubmit = (isCorrect: boolean, userAnswer: string, hintLevel?: number) => {
     const timeSpent = Date.now() - startTimeRef.current
+
+    // 미리보기는 피드백 없이 바로 다음으로
+    if (currentActivity!.type === 'preview') {
+      submitAnswer({
+        activityIndex: currentActivityIndex,
+        isCorrect: true,
+        userAnswer: '',
+        timeSpent,
+      })
+      handleNextDirect()
+      return
+    }
+
+    const xpEarned = calculateXp(isCorrect, hintLevel)
 
     submitAnswer({
       activityIndex: currentActivityIndex,
       isCorrect,
       userAnswer,
       timeSpent,
+      hintLevel,
     })
 
     // 마스터리 업데이트
@@ -63,52 +101,57 @@ export default function Session() {
       updateMastery(itemId, isCorrect, itemType as 'expression' | 'vocabulary')
     }
 
-    // XP 플로팅 애니메이션
+    // XP 플로팅
     if (isCorrect) {
       setXpTrigger((t) => t + 1)
     }
 
-    // 효과음
     playSound(isCorrect ? 'correct' : 'incorrect')
 
-    // 피드백 표시
     setFeedback({
       show: true,
       isCorrect,
       correctAnswer: currentActivity!.answer,
+      explanation: currentActivity!.explanation,
+      hintLevel,
+      xpEarned,
     })
+  }
+
+  const handleNextDirect = () => {
+    startTimeRef.current = Date.now()
+    if (currentActivityIndex + 1 >= activities.length) {
+      finishSession()
+    } else {
+      nextActivity()
+    }
   }
 
   const handleNext = () => {
     setFeedback(null)
-    startTimeRef.current = Date.now()
+    handleNextDirect()
+  }
 
-    if (currentActivityIndex + 1 >= activities.length) {
-      // 만점 세션 체크
-      const allResults = results
-      const allCorrect = allResults.every(r => r.isCorrect) && feedback?.isCorrect
-      if (allCorrect && allResults.length > 0) {
-        useStore.getState().incrementPerfectSessions()
-      }
-
-      // 세션 완료
-      setUnitProgress(unitId, 'completed')
-      incrementUnitsSinceTest()
-      playSound('complete')
-
-      // 배지 체크 (약간의 딜레이로 store 업데이트 후 체크)
-      setTimeout(() => {
-        const earned = checkAndAwardBadges()
-        if (earned.length > 0) {
-          setNewBadges(earned)
-          playSound('levelup')
-        }
-      }, 100)
-
-      setShowSummary(true)
-    } else {
-      nextActivity()
+  const finishSession = () => {
+    const allResults = results
+    const allCorrect = allResults.every(r => r.isCorrect) && feedback?.isCorrect
+    if (allCorrect && allResults.length > 0) {
+      useStore.getState().incrementPerfectSessions()
     }
+
+    setUnitProgress(unitId, 'completed')
+    incrementUnitsSinceTest()
+    playSound('complete')
+
+    setTimeout(() => {
+      const earned = checkAndAwardBadges()
+      if (earned.length > 0) {
+        setNewBadges(earned)
+        playSound('levelup')
+      }
+    }, 100)
+
+    setShowSummary(true)
   }
 
   const handleFinish = () => {
@@ -123,14 +166,16 @@ export default function Session() {
 
   // 세션 요약 화면
   if (showSummary) {
-    const totalCorrect = [...results, ...(feedback ? [{ isCorrect: feedback.isCorrect }] : [])].filter(r => r.isCorrect).length
-    const totalCount = results.length + (feedback ? 1 : 0)
+    const allResults = [...results, ...(feedback ? [{ isCorrect: feedback.isCorrect, hintLevel: feedback.hintLevel }] : [])]
+    const scoredResults = allResults.filter((_, i) => activities[i]?.type !== 'preview')
+    const totalCorrect = scoredResults.filter(r => r.isCorrect).length
+    const totalCount = scoredResults.length
     const accuracy = totalCount > 0 ? Math.round((totalCorrect / totalCount) * 100) : 0
-    const xpEarned = totalCorrect * 10 + totalCount * 2
 
-    // 복습/새학습 분리 통계
-    const reviewActivities = activities.filter(a => a.isReview)
-    const newActivities = activities.filter(a => !a.isReview)
+    // 힌트 기반 XP 합산
+    const totalXp = scoredResults.reduce((sum, r) => {
+      return sum + calculateXp(r.isCorrect, r.hintLevel)
+    }, 0)
 
     return (
       <div className="max-w-lg mx-auto px-4 pt-16 pb-8 animate-slide-up">
@@ -140,11 +185,6 @@ export default function Session() {
           </div>
           <h1 className="text-2xl font-bold">학습 완료!</h1>
           <p className="text-fluent-text-secondary mt-1">{unit?.name}</p>
-          {reviewActivities.length > 0 && (
-            <p className="text-xs text-fluent-text-muted mt-1">
-              복습 {reviewActivities.length}개 + 새 학습 {newActivities.length}개
-            </p>
-          )}
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-8">
@@ -155,7 +195,7 @@ export default function Session() {
           </div>
           <div className="card text-center py-4">
             <StarIcon size={20} className="text-fluent-xp mx-auto mb-1" />
-            <span className="text-xl font-bold">+{xpEarned}</span>
+            <span className="text-xl font-bold">+{totalXp}</span>
             <span className="text-[10px] text-fluent-text-muted block mt-0.5">XP</span>
           </div>
           <div className="card text-center py-4">
@@ -187,6 +227,7 @@ export default function Session() {
           <h3 className="font-semibold text-sm mb-3">학습 결과</h3>
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {activities.map((act, i) => {
+              if (act.type === 'preview') return null
               const result = results[i]
               return (
                 <div key={i} className="flex items-start gap-2 py-1.5 border-b border-fluent-navy-700/50 last:border-0">
@@ -203,6 +244,9 @@ export default function Session() {
                     <p className="text-xs text-fluent-text-secondary truncate">
                       {act.expression?.english ?? act.vocabulary?.word ?? act.question}
                     </p>
+                    {result && result.hintLevel && result.hintLevel > 0 && (
+                      <p className="text-[10px] text-fluent-warning">힌트 {result.hintLevel}단계 사용</p>
+                    )}
                   </div>
                 </div>
               )
@@ -227,6 +271,7 @@ export default function Session() {
     const props = { activity: currentActivity, onSubmit: handleSubmit }
 
     switch (currentActivity.type) {
+      case 'preview': return <Preview {...props} />
       case 'translation': return <Translation {...props} />
       case 'comprehension': return <Comprehension {...props} />
       case 'fill-blank': return <FillBlank {...props} />
@@ -237,6 +282,8 @@ export default function Session() {
       case 'dictation': return <Dictation {...props} />
     }
   }
+
+  const sectionInfo = currentSection ? SECTION_LABELS[currentSection] : null
 
   return (
     <div className="max-w-lg mx-auto min-h-screen flex flex-col">
@@ -249,8 +296,10 @@ export default function Session() {
           </button>
           <ProgressBar value={progress} color="teal" size="sm" className="flex-1" />
           <div className="flex items-center gap-1.5 min-w-fit">
-            {isCurrentReview && (
-              <span className="text-[10px] bg-fluent-warning/20 text-fluent-warning px-1.5 py-0.5 rounded">복습</span>
+            {sectionInfo && (
+              <span className="text-[10px] bg-fluent-navy-700 text-fluent-text-secondary px-1.5 py-0.5 rounded">
+                {sectionInfo.emoji} {sectionInfo.label}
+              </span>
             )}
             <span className="text-xs text-fluent-text-muted">
               {currentActivityIndex + 1}/{activities.length}
@@ -261,10 +310,12 @@ export default function Session() {
 
       {/* 활동 영역 */}
       <div className="flex-1 px-4 py-6">
-        {/* 복습→새학습 전환 배너 */}
-        {showSectionTransition && !feedback?.show && (
+        {/* 섹션 전환 배너 */}
+        {showSectionTransition && !feedback?.show && sectionInfo && (
           <div className="mb-4 bg-fluent-teal-400/10 border border-fluent-teal-400/20 rounded-xl px-4 py-3 text-center animate-slide-up">
-            <p className="text-sm font-medium text-fluent-teal-300">복습 완료! 새로운 학습을 시작합니다</p>
+            <p className="text-sm font-medium text-fluent-teal-300">
+              {sectionInfo.emoji} {sectionInfo.label} 단계
+            </p>
           </div>
         )}
 
@@ -286,7 +337,12 @@ export default function Session() {
                   </div>
                   <div>
                     <p className="font-bold text-fluent-success">정답!</p>
-                    <p className="text-sm text-fluent-text-secondary">잘했어요!</p>
+                    <p className="text-sm text-fluent-text-secondary">
+                      +{feedback.xpEarned} XP
+                      {feedback.hintLevel && feedback.hintLevel > 0 && (
+                        <span className="text-fluent-warning ml-1">(힌트 {feedback.hintLevel}단계)</span>
+                      )}
+                    </p>
                   </div>
                 </>
               ) : (
@@ -306,6 +362,16 @@ export default function Session() {
               <p className="text-xs text-fluent-text-muted mb-1">정답</p>
               <p className="font-medium">{feedback.correctAnswer}</p>
             </div>
+
+            {/* 문제 해설 */}
+            {feedback.explanation && (
+              <div className="bg-fluent-navy-700/30 rounded-xl p-4 mb-4 border-l-2 border-fluent-teal-400/50">
+                <p className="text-xs text-fluent-teal-400 font-medium mb-1">💡 해설</p>
+                <p className="text-sm text-fluent-text-secondary leading-relaxed">
+                  {feedback.explanation}
+                </p>
+              </div>
+            )}
 
             <button
               onClick={handleNext}
