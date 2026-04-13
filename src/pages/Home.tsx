@@ -4,9 +4,10 @@ import { useStore } from '@/stores/useStore'
 import { levels, getThemesForLevel, getUnitsForTheme, getExpressionsForUnit, getVocabularyForUnit } from '@/data/curriculum'
 import { getGreeting, formatXp } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import { FireIcon, StarIcon, TrophyIcon, BookIcon } from '@/components/ui/Icons'
+import { FireIcon, StarIcon, TrophyIcon, BookIcon, ChevronRightIcon } from '@/components/ui/Icons'
 import { getPendingReviewCount } from '@/features/learning/reviewScheduler'
 import { getEarnedBadges } from '@/features/gamification/badgeChecker'
+import { playSound } from '@/lib/sounds'
 
 type Intensity = 'light' | 'normal' | 'hard'
 
@@ -20,6 +21,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { settings, updateSettings, totalXp, streak, unitProgress, getTodaySessions, unitsSinceLastTest } = useStore()
   const [intensity, setIntensity] = useState<Intensity>('normal')
+  const [showLevelUp, setShowLevelUp] = useState(false)
 
   const currentLevel = levels.find((l) => l.level === settings.currentLevel)
   const todaySessions = getTodaySessions()
@@ -31,6 +33,8 @@ export default function Home() {
   const allUnits = currentThemes.flatMap((t) => getUnitsForTheme(t.id))
   const completedUnits = allUnits.filter((u) => unitProgress[u.id] === 'completed').length
   const levelProgress = allUnits.length > 0 ? (completedUnits / allUnits.length) * 100 : 0
+  const isLevelComplete = allUnits.length > 0 && completedUnits === allUnits.length
+  const isMaxLevel = settings.currentLevel >= 10
 
   // 복습 대기 항목 수
   const pendingReviews = getPendingReviewCount()
@@ -170,11 +174,65 @@ export default function Home() {
           <BookIcon size={22} />
           학습 시작
         </button>
+      ) : isLevelComplete && !isMaxLevel ? (
+        <div className="card text-center py-6 mb-4 border border-fluent-teal-400/30 bg-fluent-teal-400/5">
+          <TrophyIcon size={32} className="text-fluent-xp mx-auto mb-2" />
+          <p className="font-semibold text-lg">레벨 완료!</p>
+          <p className="text-sm text-fluent-text-secondary mt-1 mb-4">
+            {currentLevel?.name}의 모든 유닛을 마스터했어요
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const nextLv = settings.currentLevel + 1
+                updateSettings({ currentLevel: nextLv })
+                playSound('levelup')
+                setShowLevelUp(true)
+                setTimeout(() => setShowLevelUp(false), 3000)
+              }}
+              className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
+            >
+              Lv.{settings.currentLevel + 1}로 승급
+              <ChevronRightIcon size={18} />
+            </button>
+            <button
+              onClick={() => navigate('/level-test?type=periodic')}
+              className="px-4 py-3 rounded-xl bg-fluent-navy-700 text-fluent-text-secondary text-sm"
+            >
+              레벨 테스트
+            </button>
+          </div>
+          <p className="text-[10px] text-fluent-text-muted mt-2">
+            레벨 테스트로 실력을 확인하고 승급할 수도 있어요
+          </p>
+        </div>
+      ) : isMaxLevel && isLevelComplete ? (
+        <div className="card text-center py-6 mb-4 border border-fluent-xp/30 bg-fluent-xp/5">
+          <TrophyIcon size={40} className="text-fluent-xp mx-auto mb-2" />
+          <p className="font-bold text-lg">전체 마스터!</p>
+          <p className="text-sm text-fluent-text-secondary mt-1">
+            모든 레벨을 완료했습니다. 복습으로 실력을 유지하세요!
+          </p>
+        </div>
       ) : (
         <div className="card text-center py-6 mb-4">
-          <TrophyIcon size={32} className="text-fluent-xp mx-auto mb-2" />
-          <p className="font-semibold">레벨 완료!</p>
-          <p className="text-sm text-fluent-text-secondary mt-1">모든 유닛을 완료했습니다</p>
+          <BookIcon size={32} className="text-fluent-teal-400 mx-auto mb-2" />
+          <p className="font-semibold">학습 콘텐츠 준비 중</p>
+          <p className="text-sm text-fluent-text-secondary mt-1">곧 새로운 유닛이 추가될 예정이에요</p>
+        </div>
+      )}
+
+      {/* 레벨 승급 알림 */}
+      {showLevelUp && (
+        <div className="card mb-4 border border-fluent-success/30 bg-fluent-success/5 animate-slide-up">
+          <div className="text-center py-2">
+            <p className="text-fluent-success font-bold text-lg">
+              Lv.{settings.currentLevel} 승급!
+            </p>
+            <p className="text-sm text-fluent-text-secondary mt-1">
+              {levels.find(l => l.level === settings.currentLevel)?.name} — {levels.find(l => l.level === settings.currentLevel)?.description}
+            </p>
+          </div>
         </div>
       )}
 

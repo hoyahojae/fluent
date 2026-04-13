@@ -1,15 +1,26 @@
+import { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
 import { useTheme } from '@/lib/useTheme'
 import { BottomNav } from '@/components/layout/BottomNav'
-import Welcome from '@/pages/Welcome'
-import LevelTest from '@/pages/LevelTest'
-import Home from '@/pages/Home'
-import Learn from '@/pages/Learn'
-import Manage from '@/pages/Manage'
-import Reports from '@/pages/Reports'
-import Session from '@/pages/Session'
-import Debug from '@/pages/Debug'
+
+// Lazy-loaded pages
+const Welcome = lazy(() => import('@/pages/Welcome'))
+const LevelTest = lazy(() => import('@/pages/LevelTest'))
+const Home = lazy(() => import('@/pages/Home'))
+const Learn = lazy(() => import('@/pages/Learn'))
+const Manage = lazy(() => import('@/pages/Manage'))
+const Reports = lazy(() => import('@/pages/Reports'))
+const Session = lazy(() => import('@/pages/Session'))
+const Debug = lazy(() => import('@/pages/Debug'))
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-8 h-8 border-3 border-fluent-teal-400/30 border-t-fluent-teal-400 rounded-full animate-spin" />
+    </div>
+  )
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isOnboarded = useStore((s) => s.isOnboarded)
@@ -23,24 +34,26 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-fluent-bg-dark text-fluent-text-primary">
-      <Routes>
-        {/* 온보딩 플로우 */}
-        <Route path="/welcome" element={
-          isOnboarded ? <Navigate to="/" replace /> : <Welcome />
-        } />
-        <Route path="/level-test" element={<LevelTest />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* 온보딩 플로우 */}
+          <Route path="/welcome" element={
+            isOnboarded ? <Navigate to="/" replace /> : <Welcome />
+          } />
+          <Route path="/level-test" element={<LevelTest />} />
 
-        {/* 메인 앱 */}
-        <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/learn" element={<ProtectedRoute><Learn /></ProtectedRoute>} />
-        <Route path="/manage" element={<ProtectedRoute><Manage /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-        <Route path="/session" element={<ProtectedRoute><Session /></ProtectedRoute>} />
-        <Route path="/debug" element={<Debug />} />
+          {/* 메인 앱 */}
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/learn" element={<ProtectedRoute><Learn /></ProtectedRoute>} />
+          <Route path="/manage" element={<ProtectedRoute><Manage /></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="/session" element={<ProtectedRoute><Session /></ProtectedRoute>} />
+          <Route path="/debug" element={<Debug />} />
 
-        {/* 기본 리다이렉트 */}
-        <Route path="*" element={<Navigate to={isOnboarded ? '/' : '/welcome'} replace />} />
-      </Routes>
+          {/* 기본 리다이렉트 */}
+          <Route path="*" element={<Navigate to={isOnboarded ? '/' : '/welcome'} replace />} />
+        </Routes>
+      </Suspense>
       <BottomNav />
     </div>
   )

@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 type Period = 'week' | 'month' | 'all'
 
 export default function Reports() {
-  const { totalXp, streak, sessionLogs, mastery, earnedBadges, levelTestHistory } = useStore()
+  const { totalXp, streak, sessionLogs, mastery, earnedBadges, levelTestHistory, settings } = useStore()
   const [period, setPeriod] = useState<Period>('week')
 
   // 기간별 세션 필터
@@ -208,6 +208,40 @@ export default function Reports() {
           </div>
         </div>
 
+        {/* 레벨테스트 약점 분석 */}
+        {settings.categoryWeakness && (
+          <div className="card">
+            <h3 className="font-semibold text-sm mb-3">레벨테스트 약점 분석</h3>
+            <p className="text-[10px] text-fluent-text-muted mb-3">최근 레벨테스트 결과 기반 · 약한 영역에 학습 활동이 더 배분됩니다</p>
+            <div className="space-y-3">
+              {([
+                { key: 'vocabulary' as const, label: '어휘', icon: '📝' },
+                { key: 'reading' as const, label: '독해', icon: '📖' },
+                { key: 'grammar' as const, label: '문법', icon: '✏️' },
+              ]).map(({ key, label, icon }) => {
+                const ratio = settings.categoryWeakness![key]
+                const pct = Math.round(ratio * 100)
+                return (
+                  <div key={key}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span>{icon} {label}</span>
+                      <span className={pct >= 70 ? 'text-fluent-success' : pct >= 40 ? 'text-fluent-warning' : 'text-fluent-error'}>
+                        {pct}%
+                        {pct < 50 && ' — 집중 강화 중'}
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={pct}
+                      color={pct >= 70 ? 'success' : pct >= 40 ? 'warning' : 'error'}
+                      size="sm"
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* 마스터리 현황 */}
         <div className="card">
           <h3 className="font-semibold text-sm mb-3">학습 마스터리</h3>
@@ -319,7 +353,7 @@ export default function Reports() {
                         </p>
                         <p className="text-[10px] text-fluent-text-muted">
                           {new Date(entry.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })}
-                          {' · '}{entry.score}/20 정답
+                          {' · '}{entry.score}점
                         </p>
                       </div>
                     </div>
